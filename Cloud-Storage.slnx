@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="CloudStorage.Api/CloudStorage.Api.csproj" Id="4f153d06-9934-4d58-984c-c0220de819cc" />
+    <Project Path="CloudStorage.Application/CloudStorage.Application.csproj" Id="385191cd-93e0-4b9d-8190-8c2d9bc473bd" />
+    <Project Path="CloudStorage.Domain/CloudStorage.Domain.csproj" Id="0413caf1-dda4-4622-bbc5-b31a1f5aec8f" />
+    <Project Path="CloudStorage.Infrastructure/CloudStorage.Infrastructure.csproj" Id="db2be58e-3ca8-41b2-a2e4-19ab01a0d92b" />
+    <Project Path="CloudStorage.Shared/CloudStorage.Shared.csproj" Id="2fedd224-c12d-42ac-87d3-674816b79ef7" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="CloudStorage.IntegrationTests/CloudStorage.IntegrationTests.csproj" Id="1615561e-807a-4f61-ac3e-801c4f66141f" />
+    <Project Path="CloudStorage.UnitTests/CloudStorage.UnitTests.csproj" Id="f794c426-052e-4821-8c60-ab6c5ed8eeca" />
+  </Folder>
+</Solution>
