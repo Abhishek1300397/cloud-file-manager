@@ -1,10 +1,9 @@
-﻿using Amazon;
-using Amazon.S3;
-using CloudStorage.Api.Middleware;
+﻿using CloudStorage.Api.Middleware;
 using CloudStorage.Api.Services;
+using CloudStorage.Application;
 using CloudStorage.Application.Abstractions.Authentication;
 using CloudStorage.Application.Configuration;
-using Microsoft.AspNetCore.Antiforgery;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -23,7 +22,8 @@ public static class ServiceCollectionExtensions
 
         services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
 
-        services.AddSingleton<AwsOptions>();
+        services.AddValidatorsFromAssemblyContaining<AssemblyReference>();
+        //   services.AddSingleton<AwsOptions>();
 
         return services;
     }
@@ -82,27 +82,13 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddHealthCheck(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("PostgreSQL") ?? throw new InvalidOperationException("PostgreSQL connection string is not configured.");
-        var region = configuration[
-            $"{AwsOptions.SectionName}:Region"]
-            ?? throw new InvalidOperationException(
-                "AWS Region is not configured.");
 
-        var bucketName = configuration[
-            $"{AwsOptions.SectionName}:BucketName"]
-            ?? throw new InvalidOperationException(
-                "AWS BucketName is not configured.");
+
+        var connectionString = configuration.GetConnectionString("PostgreSQL") ?? throw new InvalidOperationException("PostgreSQL connection string is not configured.");
 
         //  var redisConnectionString = configuration.GetConnectionString("Redis") ?? throw new InvalidOperationException("Redis connection string is not configured.");
-        services.AddHealthChecks()
-            .AddNpgSql(connectionString, name: "postgresql")
-              .AddS3(options => { options.BucketName = bucketName; 
-                  options.S3Config = new AmazonS3Config
-              {
-                  RegionEndpoint =
-                RegionEndpoint.GetBySystemName(region)
-              };
-              }, name: "aws-s3"); ;
+
+        services.AddHealthChecks().AddNpgSql(connectionString, name: "postgresql");
         return services;
     }
 }

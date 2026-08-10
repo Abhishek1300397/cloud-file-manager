@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CloudStorage.Infrastructure.Persistence.Repositories
 {
-    internal class UserRepository(ApplicationDbContext dbContext , IUnitOfWork unitOfWork) : IUserRepository
+    internal class UserRepository(ApplicationDbContext dbContext) : IUserRepository
     {
         public async Task AddAsync(User user, CancellationToken cancellationToken = default)
         {

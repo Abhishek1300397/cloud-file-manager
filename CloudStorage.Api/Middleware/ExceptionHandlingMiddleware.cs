@@ -19,7 +19,14 @@ namespace CloudStorage.Api.Middleware
                     "An unhandled exception occurred while processing {Method} {Path}",
                     context.Request.Method,
                     context.Request.Path);
-                var statusCode = exception is AppException appException ? GetStatusCode(appException) : StatusCodes.Status500InternalServerError;
+                var statusCode = exception switch
+                {
+                    FluentValidation.ValidationException => StatusCodes.Status400BadRequest,
+
+                    AppException appException => GetStatusCode(appException),
+
+                    _ => StatusCodes.Status500InternalServerError
+                };
 
                 context.Response.StatusCode = statusCode;
 
@@ -28,32 +35,52 @@ namespace CloudStorage.Api.Middleware
                     exception,
                     statusCode);
 
-                await problemDetailsService.WriteAsync(new ProblemDetailsContext
-                {
-                    HttpContext = context,
-                    ProblemDetails = problemDetails
-                });
+                await problemDetailsService.WriteAsync(
+                    new ProblemDetailsContext
+                    {
+                        HttpContext = context,
+                        ProblemDetails = problemDetails
+                    });
             }
         }
 
-        private static ProblemDetails CreateProblemDetails(HttpContext context, Exception exception, int statusCode)
+        private static ProblemDetails CreateProblemDetails(HttpContext context,Exception exception, int statusCode)
         {
             var problemDetails = new ProblemDetails
             {
                 Status = statusCode,
-                Title = exception is AppException appException ? appException.Title : "Internal Server Error",
-                Type = $"https://httpstatuses.com/{statusCode}",
-                Detail = statusCode == StatusCodes.Status500InternalServerError ? "An unexpected error occurred." : exception.Message,
+                Title = statusCode switch
+                {
+                    StatusCodes.Status400BadRequest => "Validation Error",
+                    StatusCodes.Status401Unauthorized => "Unauthorized",
+                    StatusCodes.Status403Forbidden => "Forbidden",
+                    StatusCodes.Status404NotFound => "Not Found",
+                    _ => "An error occurred"
+                },
                 Instance = context.Request.Path
             };
 
-            problemDetails.Extensions["traceId"] = context.TraceIdentifier;
+            if (exception is FluentValidation.ValidationException validationException)
+            {
+                problemDetails.Extensions["errors"] =
+                    validationException.Errors
+                        .GroupBy(error => error.PropertyName)
+                        .ToDictionary(
+                            group => group.Key,
+                            group => group
+                                .Select(error => error.ErrorMessage)
+                                .ToArray());
+
+                return problemDetails;
+            }
+            problemDetails.Detail = "An unexpected error occurred.";
+
+            if (exception is AppException appException) problemDetails.Detail = appException.Message;
 
             return problemDetails;
         }
 
 
-    
 
         private static int GetStatusCode(AppException exception)
         {
