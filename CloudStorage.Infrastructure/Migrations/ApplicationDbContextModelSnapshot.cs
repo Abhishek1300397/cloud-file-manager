@@ -48,8 +48,10 @@ namespace CloudStorage.Infrastructure.Migrations
                     b.Property<long>("Size")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("UserId")
-                        .HasMaxLength(100)
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");

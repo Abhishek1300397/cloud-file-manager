@@ -1,4 +1,6 @@
-﻿namespace CloudStorage.Domain.Entities
+﻿using CloudStorage.Domain.Enums;
+
+namespace CloudStorage.Domain.Entities
 {
     public sealed class StoredFile
     {
@@ -14,6 +16,8 @@
 
         public long Size { get; private set; }
 
+        public FileStatus Status { get; private set; }
+
         public DateTime CreatedAtUtc { get; private set; }
 
         public User User { get; private set; } = null!;
@@ -22,30 +26,28 @@
         {
         }
 
-        public StoredFile(
-            Guid userId,
-            string originalFileName,
-            string objectKey,
-            string contentType,
-            long size)
+        public StoredFile(Guid id, Guid userId, string originalFileName, string objectKey, string contentType, long size)
         {
-            Id = Guid.NewGuid();
+            Id = id;
             UserId = userId;
             OriginalFileName = originalFileName;
             ObjectKey = objectKey;
             ContentType = contentType;
             Size = size;
             CreatedAtUtc = DateTime.UtcNow;
+            Status = FileStatus.Pending;
         }
 
         public void Rename(string fileName)
         {
-            if (string.IsNullOrWhiteSpace(fileName))
-                throw new ArgumentException(
-                    "File name cannot be empty.",
-                    nameof(fileName));
+            if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("File name cannot be empty.", nameof(fileName));
 
             OriginalFileName = fileName;
+        }
+
+        public void MarkAsUploaded()
+        {
+            Status = FileStatus.Uploaded;
         }
     }
 }

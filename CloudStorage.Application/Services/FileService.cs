@@ -1,25 +1,29 @@
-﻿using CloudStorage.Application.Abstractions.Authentication;
-using CloudStorage.Application.Abstractions.Files;
+﻿using CloudStorage.Application.Abstractions.Files;
 using CloudStorage.Application.Abstractions.Persistence;
 using CloudStorage.Application.Abstractions.Services;
 using CloudStorage.Application.Abstractions.Storage;
+using CloudStorage.Application.Configuration;
 using CloudStorage.Application.DTOs.Requests;
 using CloudStorage.Application.DTOs.Responses;
 using CloudStorage.Application.Exceptions;
 using CloudStorage.Domain.Entities;
+using CloudStorage.Domain.Enums;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CloudStorage.Application.Services
 {
     public class FileService(IFileStorageService fileStorageService,
                                 IValidator<UploadFileCommand> validator,
                                 IValidator<RenameFileRequest> renameFileValidator,
+                                IValidator<CreatePresignedUploadRequest> presignedUploadValidator,
                                 IFileSignatureValidator fileSignatureValidator,
                                 IFileRepository fileRepository,
                                 ILogger<FileService> logger,
-                                IUnitOfWork unitOfWork) : IFileService
+                                IUnitOfWork unitOfWork,
+                                IOptions<AwsOptions> awsOptions) : IFileService
     {
 
         public async Task<FileDownloadResponse> DownloadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
@@ -80,7 +84,7 @@ namespace CloudStorage.Application.Services
 
             var uploadResult = await fileStorageService.UploadAsync(fileCommand, cancellationToken);
 
-            var storedFile = new StoredFile(fileCommand.UserId, uploadResult.OriginalFileName, uploadResult.ObjectKey, uploadResult.ContentType, uploadResult.Size);
+            var storedFile = new StoredFile(Guid.NewGuid(), fileCommand.UserId, uploadResult.OriginalFileName, uploadResult.ObjectKey, uploadResult.ContentType, uploadResult.Size);
 
             try
             {
@@ -138,15 +142,13 @@ namespace CloudStorage.Application.Services
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task<FileDeatails> GetFileMetaDataAsync(Guid fileId, Guid userId ,CancellationToken cancellationToken = default)
+        public async Task<FileMetadataResponse> GetFileMetadataAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
         {
             var storedFile = await fileRepository.GetByIdAsync(fileId, cancellationToken) ?? throw new NotFoundException("File not found.");
 
-            if (storedFile.UserId != userId)
-                throw new ForbiddenException(
-                    "You do not have access to this file.");
+            if (storedFile.UserId != userId) throw new ForbiddenException("You do not have access to this file.");
 
-            return new FileDeatails
+            return new FileMetadataResponse
             {
                 Id = storedFile.Id,
                 FileName = storedFile.OriginalFileName,
@@ -154,6 +156,74 @@ namespace CloudStorage.Application.Services
                 Size = storedFile.Size,
                 CreatedAt = storedFile.CreatedAtUtc
             };
+        }
+
+        public async Task<PresignedUploadResponse> GeneratePresignedUploadAsync(CreatePresignedUploadRequest request, Guid userId, CancellationToken cancellationToken = default)
+        {
+            await presignedUploadValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+            var fileId = Guid.NewGuid();
+
+            string fileName = FileNameSanitizer.Sanitize(request.FileName);
+
+            var extension = Path.GetExtension(fileName);
+
+            var objectKey = $"users/{userId}/{DateTime.UtcNow:yyyy/MM}/{fileId}{extension}";
+
+            var expiration = TimeSpan.FromMinutes(awsOptions.Value.PresignedUploadExpirationMinutes);
+            var expiresAtUtc = DateTime.UtcNow.Add(expiration);
+
+            var storedFile = new StoredFile(fileId, userId, fileName, objectKey, request.ContentType, request.Size);
+
+            await fileRepository.AddAsync(storedFile, cancellationToken);
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var uploadUrl = await fileStorageService.GenerateUploadUrlAsync(objectKey, request.ContentType, expiration, cancellationToken);
+
+            return new PresignedUploadResponse
+            {
+                FileId = fileId,
+                UploadUrl = uploadUrl,
+                ExpiresAtUtc = expiresAtUtc
+            };
+        }
+
+        public async Task CompletePresignedUploadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
+        {
+            var storedFile = await fileRepository.GetByIdAsync(fileId, cancellationToken) ?? throw new NotFoundException("File not found.");
+
+            if (storedFile.UserId != userId) throw new ForbiddenException("You do not have access to this file.");
+
+            if (storedFile.Status != FileStatus.Pending) throw new InvalidOperationException("File upload has already been completed.");
+
+            var metadata = await fileStorageService.GetMetadataAsync(storedFile.ObjectKey, cancellationToken) ?? throw new NotFoundException(
+                    "Uploaded file was not found in storage.");
+
+            if (metadata.ContentLength != storedFile.Size) throw new Exceptions.ValidationException("Uploaded file size does not match the expected size.");
+
+            if (!string.Equals(metadata.ContentType, storedFile.ContentType, StringComparison.OrdinalIgnoreCase)) throw new Exceptions.ValidationException("Uploaded file content type does not match the expected content type.");
+
+            storedFile.MarkAsUploaded();
+
+            await fileRepository.UpdateAsync(storedFile, cancellationToken);
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<string> GeneratePresignedDownloadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
+        {
+            var storedFile = await fileRepository.GetByIdAsync(fileId, cancellationToken) ?? throw new NotFoundException("File not found.");
+
+            if (storedFile.UserId != userId) throw new ForbiddenException("You do not have access to this file.");
+
+            if (storedFile.Status != FileStatus.Uploaded) throw new InvalidOperationException("File has not been uploaded yet.");
+
+            var expiration = TimeSpan.FromMinutes(awsOptions.Value.PresignedDownloadExpirationMinutes);
+
+            var downloadUrl = await fileStorageService.GenerateDownloadUrlAsync(storedFile.ObjectKey, expiration, cancellationToken);
+
+            return downloadUrl;
         }
     }
 }

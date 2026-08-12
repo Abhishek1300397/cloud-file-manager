@@ -92,9 +92,42 @@ namespace CloudStorage.Api.Controllers
         {
             var userId = currentUser.UserId;
 
-            var files = await fileService.GetFileMetaDataAsync(fileId, cancellationToken);
+            var files = await fileService.GetFileMetadataAsync(fileId, userId, cancellationToken);
 
             return Ok(files);
+        }
+
+        [HttpPost("presigned-upload")]
+        public async Task<IActionResult> GeneratePresignedUpload([FromBody] CreatePresignedUploadRequest request, CancellationToken cancellationToken)
+        {
+            var userId = currentUser.UserId;
+
+            var response = await fileService.GeneratePresignedUploadAsync(request, userId, cancellationToken);
+
+            return Ok(response);
+        }
+
+        [HttpPost("{fileId:guid}/complete")]
+        public async Task<IActionResult> CompleteUpload(Guid fileId, CancellationToken cancellationToken)
+        {
+            var userId = currentUser.UserId;
+
+            await fileService.CompletePresignedUploadAsync(fileId, userId, cancellationToken);
+
+            return NoContent();
+        }
+
+        [HttpGet("{fileId:guid}/download-url")]
+        public async Task<IActionResult> GeneratePresignedDownloadUrl(Guid fileId, CancellationToken cancellationToken)
+        {
+            var userId = currentUser.UserId;
+
+            var downloadUrl = await fileService.GeneratePresignedDownloadAsync(fileId, userId, cancellationToken);
+
+            return Ok(new
+            {
+                downloadUrl
+            });
         }
     }
 }

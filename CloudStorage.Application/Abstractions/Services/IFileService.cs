@@ -15,6 +15,13 @@ namespace CloudStorage.Application.Abstractions.Services
 
         Task RenameAsync(Guid fileId, Guid userId, RenameFileRequest fileName, CancellationToken cancellationToken = default);
 
-        Task<FileDeatails> GetFileMetaDataAsync(Guid fileId, Guid userId ,CancellationToken cancellationToken = default);
+        Task<FileMetadataResponse> GetFileMetadataAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default);
+
+        Task<PresignedUploadResponse> GeneratePresignedUploadAsync(CreatePresignedUploadRequest request, Guid userId, CancellationToken cancellationToken = default);
+
+        Task CompletePresignedUploadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default);
+
+        Task<string> GeneratePresignedDownloadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default);
+
     }
 }

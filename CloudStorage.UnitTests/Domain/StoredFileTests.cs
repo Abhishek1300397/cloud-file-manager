@@ -13,6 +13,7 @@ namespace CloudStorage.UnitTests.Domain
         public void Constructor_Should_Create_File_With_Expected_Values()
         {
             // Arrange
+            var fileId = Guid.NewGuid();
             var userId = Guid.NewGuid();
             var fileName = "document.pdf";
             var objectKey = "users/123/document.pdf";
@@ -21,6 +22,7 @@ namespace CloudStorage.UnitTests.Domain
 
             // Act
             var file = new StoredFile(
+                fileId,
                 userId,
                 fileName,
                 objectKey,
@@ -43,6 +45,7 @@ namespace CloudStorage.UnitTests.Domain
             // Arrange
             var file = new StoredFile(
                 Guid.NewGuid(),
+                Guid.NewGuid(),
                 "old-name.pdf",
                 "users/123/file.pdf",
                 "application/pdf",
@@ -62,6 +65,7 @@ namespace CloudStorage.UnitTests.Domain
             var objectKey = "users/123/abc123.pdf";
 
             var file = new StoredFile(
+                Guid.NewGuid(),
                 Guid.NewGuid(),
                 "old-name.pdf",
                 objectKey,
@@ -84,6 +88,7 @@ namespace CloudStorage.UnitTests.Domain
         {
             // Arrange
             var file = new StoredFile(
+                Guid.NewGuid(),
                 Guid.NewGuid(),
                 "old-name.pdf",
                 "users/123/file.pdf",

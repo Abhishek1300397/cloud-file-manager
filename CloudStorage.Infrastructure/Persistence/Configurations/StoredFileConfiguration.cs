@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CloudStorage.Infrastructure.Persistence.Configurations
 {
-    public sealed class StoredFileConfiguration: IEntityTypeConfiguration<StoredFile>
+    public sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredFile>
     {
         public void Configure(EntityTypeBuilder<StoredFile> builder)
         {
@@ -21,6 +21,8 @@ namespace CloudStorage.Infrastructure.Persistence.Configurations
             builder.Property(x => x.ObjectKey).IsRequired().HasMaxLength(500);
 
             builder.Property(x => x.ContentType).IsRequired().HasMaxLength(150);
+
+            builder.Property(x => x.Status).IsRequired().HasConversion<int>();
 
             builder.Property(x => x.Size).IsRequired();
 
