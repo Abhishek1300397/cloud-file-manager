@@ -138,10 +138,13 @@ namespace CloudStorage.Application.Services
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task<FileDeatails> GetFileMetaDataAsync(Guid fileId, CancellationToken cancellationToken = default)
+        public async Task<FileDeatails> GetFileMetaDataAsync(Guid fileId, Guid userId ,CancellationToken cancellationToken = default)
         {
             var storedFile = await fileRepository.GetByIdAsync(fileId, cancellationToken) ?? throw new NotFoundException("File not found.");
 
+            if (storedFile.UserId != userId)
+                throw new ForbiddenException(
+                    "You do not have access to this file.");
 
             return new FileDeatails
             {

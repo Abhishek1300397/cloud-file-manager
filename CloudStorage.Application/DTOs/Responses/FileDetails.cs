@@ -1,6 +1,6 @@
 ﻿namespace CloudStorage.Application.DTOs.Responses
 {
-    public class FileDeatails
+    public class FileDetails
     {
         public Guid Id { get; init; }
 

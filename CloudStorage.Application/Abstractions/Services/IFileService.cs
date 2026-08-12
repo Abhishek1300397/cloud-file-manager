@@ -15,6 +15,6 @@ namespace CloudStorage.Application.Abstractions.Services
 
         Task RenameAsync(Guid fileId, Guid userId, RenameFileRequest fileName, CancellationToken cancellationToken = default);
 
-        Task<FileDeatails> GetFileMetaDataAsync(Guid fileId, CancellationToken cancellationToken = default);
+        Task<FileDeatails> GetFileMetaDataAsync(Guid fileId, Guid userId ,CancellationToken cancellationToken = default);
     }
 }
