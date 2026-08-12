@@ -15,8 +15,6 @@ namespace CloudStorage.Infrastructure.Persistence.Configurations
 
             builder.Property(x => x.Email).HasMaxLength(256).IsRequired();
 
-            builder.HasIndex(x => x.Email).IsUnique();
-
             builder.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
 
             builder.Property(x => x.CreatedAtUtc).IsRequired();

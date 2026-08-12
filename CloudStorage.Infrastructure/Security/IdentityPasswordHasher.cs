@@ -4,18 +4,18 @@ using Microsoft.AspNetCore.Identity;
 
 namespace CloudStorage.Infrastructure.Security
 {
-    public class PasswordHasher : IPasswordHasher
+    public class IdentityPasswordHasher : IPasswordHasher
     {
-        private readonly PasswordHasher<User> _passwordHasher = new();
+        private readonly PasswordHasher<User> _hasher = new();
 
         public string Hash(string password)
         {
-            return _passwordHasher.HashPassword(null!, password);
+            return _hasher.HashPassword(null!, password);
         }
 
         public bool Verify(string password, string passwordHash)
         {
-            var result = _passwordHasher.VerifyHashedPassword(
+            var result = _hasher.VerifyHashedPassword(
                 null!,
                 passwordHash,
                 password);

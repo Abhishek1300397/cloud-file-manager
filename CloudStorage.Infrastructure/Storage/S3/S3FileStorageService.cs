@@ -2,6 +2,7 @@
 using Amazon.S3.Model;
 using CloudStorage.Application.Abstractions.Storage;
 using CloudStorage.Application.Configuration;
+using CloudStorage.Application.DTOs.Requests;
 using CloudStorage.Application.DTOs.Responses;
 using Microsoft.Extensions.Options;
 
@@ -9,26 +10,27 @@ namespace CloudStorage.Infrastructure.Storage.S3
 {
     internal class S3FileStorageService(IAmazonS3 s3Client, IOptions<AwsOptions> options) : IFileStorageService
     {
-        public async Task<FileUploadResponse> UploadAsync(Stream stream, string fileName, 
-                                                            string contentType, long size, string userId, CancellationToken cancellationToken = default)
+        public async Task<FileUploadResponse> UploadAsync(UploadFileCommand fileCommand, CancellationToken cancellationToken = default)
         {
+            var fileName = (fileCommand.FileName);
             var extension = Path.GetExtension(fileName);
 
-            var objectKey = $"users/{userId}/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
+            var objectKey = $"users/{fileCommand.UserId}/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
 
             var request = new PutObjectRequest
             {
                 BucketName = options.Value.BucketName,
                 Key = objectKey,
-                InputStream = stream,
+                InputStream = fileCommand.Stream,
                 AutoCloseStream = false,
-                ContentType = contentType
+                ContentType = fileCommand.ContentType
             };
+            var size = fileCommand.Size;
             request.Headers.ContentLength = size;
 
             await s3Client.PutObjectAsync(request, cancellationToken);
 
-            return new FileUploadResponse(fileName, objectKey, contentType, size);
+            return new FileUploadResponse(fileName, objectKey, fileCommand.ContentType, size);
         }
 
         public async Task DeleteAsync(string key, CancellationToken cancellationToken = default)
@@ -40,6 +42,21 @@ namespace CloudStorage.Infrastructure.Storage.S3
                 BucketName = options.Value.BucketName,
                 Key = key
             }, cancellationToken);
+        }
+
+        public async Task<Stream> DownloadAsync(string objectKey, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(objectKey)) throw new ArgumentException("Object key cannot be empty.", nameof(objectKey));
+
+            var response = await s3Client.GetObjectAsync(
+                                new GetObjectRequest
+                                {
+                                    BucketName = options.Value.BucketName,
+                                    Key = objectKey
+                                },
+                                cancellationToken);
+
+            return response.ResponseStream;
         }
     }
 }

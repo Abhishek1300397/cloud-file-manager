@@ -4,7 +4,7 @@
     {
         public Guid Id { get; private set; }
 
-        public string UserId { get; private set; } = null!;
+        public Guid UserId { get; private set; }
 
         public string OriginalFileName { get; private set; } = null!;
 
@@ -16,12 +16,14 @@
 
         public DateTime CreatedAtUtc { get; private set; }
 
+        public User User { get; private set; } = null!;
+
         private StoredFile()
         {
         }
 
         public StoredFile(
-            string userId,
+            Guid userId,
             string originalFileName,
             string objectKey,
             string contentType,
@@ -34,6 +36,16 @@
             ContentType = contentType;
             Size = size;
             CreatedAtUtc = DateTime.UtcNow;
+        }
+
+        public void Rename(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException(
+                    "File name cannot be empty.",
+                    nameof(fileName));
+
+            OriginalFileName = fileName;
         }
     }
 }

@@ -54,6 +54,7 @@ namespace CloudStorage.Application.Validators.Files
             RuleFor(x => x.FileName)
                 .Must(HasAllowedExtension)
                 .WithMessage("File extension is not supported.");
+
         }
 
         private static bool HasAllowedExtension(string fileName)

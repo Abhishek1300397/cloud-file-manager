@@ -1,5 +1,4 @@
 ﻿using CloudStorage.Application.Abstractions.Authentication;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace CloudStorage.Api.Services

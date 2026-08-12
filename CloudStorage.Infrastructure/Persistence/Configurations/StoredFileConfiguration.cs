@@ -14,7 +14,7 @@ namespace CloudStorage.Infrastructure.Persistence.Configurations
 
             builder.Property(x => x.Id).ValueGeneratedNever();
 
-            builder.Property(x => x.UserId).IsRequired().HasMaxLength(100);
+            builder.Property(x => x.UserId).IsRequired();
 
             builder.Property(x => x.OriginalFileName).IsRequired().HasMaxLength(255);
 
@@ -25,6 +25,11 @@ namespace CloudStorage.Infrastructure.Persistence.Configurations
             builder.Property(x => x.Size).IsRequired();
 
             builder.Property(x => x.CreatedAtUtc).IsRequired();
+
+            builder.HasOne(x => x.User)
+                   .WithMany()
+                   .HasForeignKey(x => x.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

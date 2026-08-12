@@ -2,10 +2,8 @@
 using Amazon.S3;
 using CloudStorage.Application.Abstractions.Persistence;
 using CloudStorage.Application.Abstractions.Security;
-using CloudStorage.Application.Abstractions.Services;
 using CloudStorage.Application.Abstractions.Storage;
 using CloudStorage.Application.Configuration;
-using CloudStorage.Application.Services;
 using CloudStorage.Infrastructure.Persistence;
 using CloudStorage.Infrastructure.Persistence.Exception;
 using CloudStorage.Infrastructure.Persistence.Repositories;
@@ -25,11 +23,9 @@ namespace CloudStorage.Infrastructure
 
             services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
 
-            services.AddSingleton<DbUpdateException>();
-
             services.AddSingleton<DatabaseExceptionTranslator>();
 
-            services.AddScoped<IPasswordHasher, PasswordHasher>();
+            services.AddScoped<IPasswordHasher, IdentityPasswordHasher>();
 
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
@@ -48,11 +44,6 @@ namespace CloudStorage.Infrastructure
                 throw new InvalidOperationException("AWS Region is not configured.");
             }
             var endpoint = RegionEndpoint.GetBySystemName(region);
-
-            var config = new AmazonS3Config
-            {
-                RegionEndpoint = endpoint
-            };
 
             services.AddSingleton<IAmazonS3>(_ => new AmazonS3Client(endpoint));
 

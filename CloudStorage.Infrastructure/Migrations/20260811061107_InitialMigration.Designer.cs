@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace CloudStorage.Infrastructure.Persistence.Migrations
+namespace CloudStorage.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260810132213_AddStoredFile")]
-    partial class AddStoredFile
+    [Migration("20260811061107_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -51,12 +51,13 @@ namespace CloudStorage.Infrastructure.Persistence.Migrations
                     b.Property<long>("Size")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
+                    b.Property<Guid>("UserId")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("stored_files", (string)null);
                 });
@@ -90,6 +91,17 @@ namespace CloudStorage.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("EMAIL_UNQ");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("CloudStorage.Domain.Entities.StoredFile", b =>
+                {
+                    b.HasOne("CloudStorage.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }

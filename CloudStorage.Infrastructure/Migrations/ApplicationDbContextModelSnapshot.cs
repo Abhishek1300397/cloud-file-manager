@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace CloudStorage.Infrastructure.Persistence.Migrations
+namespace CloudStorage.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot
@@ -48,12 +48,13 @@ namespace CloudStorage.Infrastructure.Persistence.Migrations
                     b.Property<long>("Size")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
+                    b.Property<Guid>("UserId")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("stored_files", (string)null);
                 });
@@ -87,6 +88,17 @@ namespace CloudStorage.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("EMAIL_UNQ");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("CloudStorage.Domain.Entities.StoredFile", b =>
+                {
+                    b.HasOne("CloudStorage.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }
