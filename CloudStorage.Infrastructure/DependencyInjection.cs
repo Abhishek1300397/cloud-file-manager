@@ -23,6 +23,18 @@ namespace CloudStorage.Infrastructure
 
             services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
 
+            var redisConnection = configuration[$"{RedisOptions.SectionName}:ConnectionString"];
+
+            if (string.IsNullOrWhiteSpace(redisConnection))
+            {
+                throw new InvalidOperationException("Redis is not configured.");
+            }
+            
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConnection;
+            });
+
             services.AddSingleton<DatabaseExceptionTranslator>();
 
             services.AddScoped<IPasswordHasher, IdentityPasswordHasher>();
