@@ -129,5 +129,18 @@ namespace CloudStorage.Api.Controllers
                 downloadUrl
             });
         }
+
+        [HttpGet("storage-usage")]
+        public async Task<IActionResult> GetStorageDetails(CancellationToken cancellationToken)
+        {
+            var userId = currentUser.UserId;
+
+            var storageDetails = await fileService.GetStorageUsageAsync(userId, cancellationToken);
+
+            return Ok(new
+            {
+                storageDetails
+            });
+        }
     }
 }

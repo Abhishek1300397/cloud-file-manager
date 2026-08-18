@@ -1,5 +1,6 @@
 ﻿using CloudStorage.Application.Abstractions.Persistence;
 using CloudStorage.Domain.Entities;
+using CloudStorage.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace CloudStorage.Infrastructure.Persistence.Repositories
@@ -44,6 +45,21 @@ namespace CloudStorage.Infrastructure.Persistence.Repositories
                             .ToListAsync(cancellationToken);
 
             return (items, totalCount);
+        }
+
+        public async Task<(long FileCount, long TotalSize)> GetStorageUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            var result = await dbContext.StoredFiles
+                                .Where(x => x.UserId == userId && x.Status == FileStatus.Uploaded)
+                                .GroupBy(_ => 1)
+                                .Select(g => new
+                                {
+                                    FileCount = g.LongCount(),
+                                    TotalSize = g.Sum(x => x.Size)
+                                })
+                                .FirstOrDefaultAsync(cancellationToken);
+
+            return result is null ? (0, 0) : (result.FileCount, result.TotalSize);
         }
 
         public async Task UpdateAsync(StoredFile file, CancellationToken cancellationToken = default)

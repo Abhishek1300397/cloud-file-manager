@@ -12,6 +12,7 @@ namespace CloudStorage.Infrastructure.Storage.S3
 {
     internal class S3FileStorageService(IAmazonS3 s3Client, IOptions<AwsOptions> options) : IFileStorageService
     {
+
         public async Task<FileUploadResponse> UploadAsync(UploadFileCommand fileCommand, CancellationToken cancellationToken = default)
         {
             var fileName = (fileCommand.FileName);

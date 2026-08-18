@@ -23,5 +23,8 @@ namespace CloudStorage.Application.Abstractions.Services
 
         Task<string> GeneratePresignedDownloadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default);
 
+
+        Task<StorageUsageResponse> GetStorageUsageAsync(Guid userId, CancellationToken cancellationToken = default);
+
     }
 }

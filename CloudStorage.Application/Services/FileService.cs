@@ -1,4 +1,5 @@
-﻿using CloudStorage.Application.Abstractions.Files;
+﻿using CloudStorage.Application.Abstractions.Caching;
+using CloudStorage.Application.Abstractions.Files;
 using CloudStorage.Application.Abstractions.Persistence;
 using CloudStorage.Application.Abstractions.Services;
 using CloudStorage.Application.Abstractions.Storage;
@@ -23,6 +24,7 @@ namespace CloudStorage.Application.Services
                                 IFileRepository fileRepository,
                                 ILogger<FileService> logger,
                                 IUnitOfWork unitOfWork,
+                                ICacheService cacheService,
                                 IOptions<AwsOptions> awsOptions) : IFileService
     {
 
@@ -86,12 +88,15 @@ namespace CloudStorage.Application.Services
 
             var storedFile = new StoredFile(Guid.NewGuid(), fileCommand.UserId, uploadResult.OriginalFileName, uploadResult.ObjectKey, uploadResult.ContentType, uploadResult.Size);
 
+            storedFile.MarkAsUploaded();
+
             try
             {
                 await fileRepository.AddAsync(storedFile, cancellationToken);
 
-                await unitOfWork.SaveChangesAsync(
-                    cancellationToken);
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
+                await cacheService.RemoveAsync(CacheKeys.StorageUsage(fileCommand.UserId), cancellationToken);
 
             }
             catch (Exception exception)
@@ -125,6 +130,10 @@ namespace CloudStorage.Application.Services
             await fileRepository.DeleteAsync(storedFile, cancellationToken);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await cacheService.RemoveAsync(CacheKeys.FileMetadata(userId, fileId), cancellationToken);
+
+            await cacheService.RemoveAsync(CacheKeys.StorageUsage(userId), cancellationToken);
         }
 
         public async Task RenameAsync(Guid fileId, Guid userId, RenameFileRequest fileRequest, CancellationToken cancellationToken = default)
@@ -140,22 +149,31 @@ namespace CloudStorage.Application.Services
             await fileRepository.UpdateAsync(storedFile, cancellationToken);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await cacheService.RemoveAsync(CacheKeys.FileMetadata(userId, fileId), cancellationToken);
         }
 
         public async Task<FileMetadataResponse> GetFileMetadataAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
         {
-            var storedFile = await fileRepository.GetByIdAsync(fileId, cancellationToken) ?? throw new NotFoundException("File not found.");
+            var cacheKey = CacheKeys.FileMetadata(userId, fileId);
 
-            if (storedFile.UserId != userId) throw new ForbiddenException("You do not have access to this file.");
+            return await cacheService.GetOrCreateAsync(cacheKey,
+                async token =>
+                {
+                    var storedFile = await fileRepository.GetByIdAsync(fileId, token) ?? throw new NotFoundException("File not found.");
 
-            return new FileMetadataResponse
-            {
-                Id = storedFile.Id,
-                FileName = storedFile.OriginalFileName,
-                ContentType = storedFile.ContentType,
-                Size = storedFile.Size,
-                CreatedAt = storedFile.CreatedAtUtc
-            };
+                    if (storedFile.UserId != userId) throw new ForbiddenException("You do not have access to this file.");
+
+                    return new FileMetadataResponse
+                    {
+                        Id = storedFile.Id,
+                        FileName = storedFile.OriginalFileName,
+                        ContentType = storedFile.ContentType,
+                        Size = storedFile.Size,
+                        CreatedAt = storedFile.CreatedAtUtc
+                    };
+                },
+                TimeSpan.FromMinutes(10), cancellationToken);
         }
 
         public async Task<PresignedUploadResponse> GeneratePresignedUploadAsync(CreatePresignedUploadRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -171,6 +189,7 @@ namespace CloudStorage.Application.Services
             var objectKey = $"users/{userId}/{DateTime.UtcNow:yyyy/MM}/{fileId}{extension}";
 
             var expiration = TimeSpan.FromMinutes(awsOptions.Value.PresignedUploadExpirationMinutes);
+
             var expiresAtUtc = DateTime.UtcNow.Add(expiration);
 
             var storedFile = new StoredFile(fileId, userId, fileName, objectKey, request.ContentType, request.Size);
@@ -193,22 +212,28 @@ namespace CloudStorage.Application.Services
         {
             var storedFile = await fileRepository.GetByIdAsync(fileId, cancellationToken) ?? throw new NotFoundException("File not found.");
 
-            if (storedFile.UserId != userId) throw new ForbiddenException("You do not have access to this file.");
+            if (storedFile.UserId != userId) 
+                throw new ForbiddenException("You do not have access to this file.");
 
-            if (storedFile.Status != FileStatus.Pending) throw new InvalidOperationException("File upload has already been completed.");
+            if (storedFile.Status != FileStatus.Pending) 
+                throw new InvalidOperationException("File upload has already been completed.");
 
-            var metadata = await fileStorageService.GetMetadataAsync(storedFile.ObjectKey, cancellationToken) ?? throw new NotFoundException(
-                    "Uploaded file was not found in storage.");
+            var metadata = await fileStorageService.GetMetadataAsync(storedFile.ObjectKey, cancellationToken) ?? 
+                            throw new NotFoundException("Uploaded file was not found in storage.");
 
-            if (metadata.ContentLength != storedFile.Size) throw new Exceptions.ValidationException("Uploaded file size does not match the expected size.");
+            if (metadata.ContentLength != storedFile.Size) 
+                throw new Exceptions.ValidationException("Uploaded file size does not match the expected size.");
 
-            if (!string.Equals(metadata.ContentType, storedFile.ContentType, StringComparison.OrdinalIgnoreCase)) throw new Exceptions.ValidationException("Uploaded file content type does not match the expected content type.");
+            if (!string.Equals(metadata.ContentType, storedFile.ContentType, StringComparison.OrdinalIgnoreCase)) 
+                throw new Exceptions.ValidationException("Uploaded file content type does not match the expected content type.");
 
             storedFile.MarkAsUploaded();
 
             await fileRepository.UpdateAsync(storedFile, cancellationToken);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await cacheService.RemoveAsync(CacheKeys.StorageUsage(userId), cancellationToken);
         }
 
         public async Task<string> GeneratePresignedDownloadAsync(Guid fileId, Guid userId, CancellationToken cancellationToken = default)
@@ -224,6 +249,26 @@ namespace CloudStorage.Application.Services
             var downloadUrl = await fileStorageService.GenerateDownloadUrlAsync(storedFile.ObjectKey, expiration, cancellationToken);
 
             return downloadUrl;
+        }
+
+        public async Task<StorageUsageResponse> GetStorageUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            var cacheKey = CacheKeys.StorageUsage(userId);
+
+            var result = await cacheService.GetOrCreateAsync(cacheKey,
+                async token =>
+                {
+                    var (fileCount, totalSize) = await fileRepository.GetStorageUsageAsync(userId, token);
+
+                    return new StorageUsageResponse
+                    {
+                        FileCount = fileCount,
+                        TotalSize = totalSize
+                    };
+                },
+                TimeSpan.FromMinutes(10), cancellationToken);
+
+            return result;
         }
     }
 }

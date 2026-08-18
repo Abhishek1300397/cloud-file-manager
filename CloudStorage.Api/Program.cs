@@ -1,8 +1,5 @@
-using Amazon.S3;
-using Amazon.S3.Model;
 using CloudStorage.Api.Extensions;
 using CloudStorage.Application;
-using CloudStorage.Application.Validators.Files;
 using CloudStorage.Infrastructure;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Mvc;

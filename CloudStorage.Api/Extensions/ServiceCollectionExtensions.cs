@@ -86,9 +86,11 @@ public static class ServiceCollectionExtensions
 
         var connectionString = configuration.GetConnectionString("PostgreSQL") ?? throw new InvalidOperationException("PostgreSQL connection string is not configured.");
 
-        //  var redisConnectionString = configuration.GetConnectionString("Redis") ?? throw new InvalidOperationException("Redis connection string is not configured.");
+         var redisConnectionString = configuration.GetConnectionString("Redis") ?? throw new InvalidOperationException("Redis connection string is not configured.");
 
-        services.AddHealthChecks().AddNpgSql(connectionString, name: "postgresql");
+        services.AddHealthChecks()
+            .AddNpgSql(connectionString, name: "postgresql")
+            .AddRedis(redisConnectionString , name : "redis");
         return services;
     }
 }
